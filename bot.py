@@ -12,7 +12,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Tokenni shu yerga yozing
-TOKEN = "BU_YERGA_BOTFATHERDAN_OLGAN_TOKENINGIZNI_YOZING"
+TOKEN = "8895598746:AAGcsyp2iq7bvzDbXyOzz1ibq4fazks-kjc"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🖐 Salom! YouTube va Instagram'dan video yuklovchi bot. Link yuboring.")
