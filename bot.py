@@ -8,7 +8,7 @@ from telegram.ext import (
     CallbackQueryHandler, filters, ContextTypes
 )
 
-TOKEN = "8965637635:AAFmjmgvDqxIqBxt6UeChdKxTnivGNilVgo"
+TOKEN = "8965637635:AAFmjmgvDqxIqBxt6UeChdKxTnivGNilVgo "  # <-- Bu yerga o'zingizning asl tokeningizni yozing
 
 # Foydalanuvchi yuborgan oxirgi havolani vaqtincha saqlab turish uchun
 user_links = {}
@@ -78,7 +78,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         now = time.time()
 
         # Faqat foiz o'zgarganda va kamida 1.5 soniyadan keyin yangilaymiz
-        # (Telegram API'ni haddan tashqari ko'p chaqirmaslik uchun)
         if percent == progress_state["last_percent"]:
             return
         if percent < 100 and (now - progress_state["last_edit_time"] < 1.5):
@@ -94,20 +93,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 await query.edit_message_text(f"⏳ {label} yuklanmoqda...\n{bar} {percent}%")
             except Exception:
-                pass  # xabar o'zgarmagan yoki kichik xato bo'lsa e'tiborsiz qoldiramiz
+                pass
 
-        # Bu funksiya alohida thread'da ishlaydi, shuning uchun asosiy event loop'ga
-        # xavfsiz tarzda vazifa yuboramiz
         asyncio.run_coroutine_threadsafe(edit(), loop)
 
     if choice == "video":
         ydl_opts = {
-            # 720p gacha cheklaymiz - tezroq yuklanadi, sifat baribir yaxshi
             'format': 'best[ext=mp4][height<=720]/best[height<=720]/best[ext=mp4]/best',
             'outtmpl': 'downloads/%(id)s.%(ext)s',
             'noplaylist': True,
-            'concurrent_fragment_downloads': 8,  # parallel yuklash - tezroq
+            'concurrent_fragment_downloads': 8,
             'progress_hooks': [progress_hook],
+            'cookiefile': 'cookies.txt',  # <-- Cookie fayli ulandi
         }
     else:
         ydl_opts = {
@@ -116,6 +113,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'noplaylist': True,
             'concurrent_fragment_downloads': 8,
             'progress_hooks': [progress_hook],
+            'cookiefile': 'cookies.txt',  # <-- Cookie fayli ulandi
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -124,9 +122,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
 
     try:
-        # yt-dlp yuklash jarayoni "bloklovchi" (sync) bo'lgani uchun,
-        # botning boshqa foydalanuvchilarga javob berishini to'xtatib qo'ymasligi uchun
-        # uni alohida thread'da ishga tushiramiz
         def do_download():
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
@@ -135,21 +130,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         info, filename = await asyncio.to_thread(do_download)
 
-        # Audio holatida fayl kengaytmasi mp3'ga o'zgaradi
         if choice == "audio":
             base, _ = os.path.splitext(filename)
             filename = base + ".mp3"
 
         await query.edit_message_text(f"✅ {label} tayyor, yuborilmoqda...")
 
-        # Original post sarlavhasi va tavsifini (hashtaglar shu ichida) caption sifatida olamiz
         title = info.get("title") or ""
         description = info.get("description") or ""
 
         caption_text = title
         if description:
             caption_text = f"{title}\n\n{description}"
-        caption_text = caption_text.strip()[:1000]  # Telegram caption limiti ~1024
+        caption_text = caption_text.strip()[:1000]
 
         if not caption_text:
             caption_text = None
