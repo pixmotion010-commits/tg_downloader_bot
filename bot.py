@@ -5,7 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 import yt_dlp
 
-TOKEN = "8965637635:AAGEBE306sMTGvuVUxa6ReU_V2UR3JTcrFg"
+TOKEN = "8895598746:AAHZeAcfAD580rwj3zz86iEszV6pBPrBn3M"
 
 # Yuklash jarayonini kuzatish (Progress bar)
 def progress_hook(d):
