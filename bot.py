@@ -8,7 +8,7 @@ from telegram.ext import (
     CallbackQueryHandler, filters, ContextTypes
 )
 
-TOKEN = "8965637635:AAFmjmgvDqxIqBxt6UeChdKxTnivGNilVgo "  # <-- Bu yerga o'zingizning asl tokeningizni yozing
+TOKEN = "8965637635:AAGEBE306sMTGvuVUxa6ReU_V2UR3JTcrFg"  # <-- Bu yerga o'zingizning asl tokeningizni yozing
 
 # Foydalanuvchi yuborgan oxirgi havolani vaqtincha saqlab turish uchun
 user_links = {}
