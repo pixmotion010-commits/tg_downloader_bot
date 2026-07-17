@@ -97,14 +97,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         asyncio.run_coroutine_threadsafe(edit(), loop)
 
-    if choice == "video":
+if choice == "video":
         ydl_opts = {
-            'format': 'best[ext=mp4][height<=720]/best[height<=720]/best[ext=mp4]/best',
+            'format': 'bestvideo+bestaudio/best',
             'outtmpl': 'downloads/%(id)s.%(ext)s',
             'noplaylist': True,
             'concurrent_fragment_downloads': 8,
             'progress_hooks': [progress_hook],
-            'cookiefile': 'cookies.txt',  # <-- Cookie fayli ulandi
+            'cookiefile': 'cookies.txt',
         }
     else:
         ydl_opts = {
@@ -113,7 +113,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'noplaylist': True,
             'concurrent_fragment_downloads': 8,
             'progress_hooks': [progress_hook],
-            'cookiefile': 'cookies.txt',  # <-- Cookie fayli ulandi
+            'cookiefile': 'cookies.txt',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
