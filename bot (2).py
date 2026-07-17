@@ -8,7 +8,7 @@ from telegram.ext import (
     CallbackQueryHandler, filters, ContextTypes
 )
 
-TOKEN = "8965637635:AAGEBE306sMTGvuVUxa6ReU_V2UR3JTcrFg"
+TOKEN = "8895598746:AAHZeAcfAD580rwj3zz86iEszV6pBPrBn3M"
 
 user_links = {}
 
