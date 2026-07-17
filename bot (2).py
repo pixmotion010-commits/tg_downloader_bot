@@ -13,7 +13,7 @@ TOKEN = "8895598746:AAHZeAcfAD580rwj3zz86iEszV6pBPrBn3M"
 user_links = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Salom! Menga YouTube havolasini yuboring — video yoki audio yuklab beraman 🎬🎵")
+    await update.message.reply_text("Assalomu Alaykum ! Menga YouTube yoki Instagram havolasini yuboring — video yoki audio yuklab beraman 🎬🎵")
 
 async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
