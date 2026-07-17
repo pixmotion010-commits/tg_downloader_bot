@@ -1,105 +1,65 @@
 import os
-import time
+import re
 import asyncio
-import yt_dlp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler,
-    CallbackQueryHandler, filters, ContextTypes
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+import yt_dlp
 
-TOKEN = "8965637635:AAGEBE306sMTGvuVUxa6ReU_V2UR3JTcrFg"  # <-- Bu yerga o'zingizning asl tokeningizni yozing
+TOKEN = "8965637635:AAGEBE306sMTGvuVUxa6ReU_V2UR3JTcrFg"
 
-# Foydalanuvchi yuborgan oxirgi havolani vaqtincha saqlab turish uchun
-user_links = {}
-
+# Yuklash jarayonini kuzatish (Progress bar)
+def progress_hook(d):
+    if d['status'] == 'downloading':
+        pass
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Salom! Menga YouTube yoki Instagram havolasini yuboring — "
-        "video yoki audio (mp3) yuklab beraman 🎬🎵"
+        "Salom! Men YouTube'dan video va audio yuklab beruvchi botman.\n"
+        "Menga shunchaki YouTube video havolasini (linkini) yuboring."
     )
-
 
 async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
-
-    if not url.startswith("http"):
-        await update.message.reply_text("Iltimos, to'g'ri havola yuboring.")
+    
+    # YouTube havolasi ekanligini tekshirish
+    youtube_regex = r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+'
+    if not re.match(youtube_regex, url):
+        await update.message.reply_text("Iltimos, faqat to'g'ri YouTube havolasini yuboring!")
         return
 
-    # Havolani foydalanuvchi ID'siga bog'lab saqlaymiz
-    user_links[update.effective_user.id] = url
+    context.user_data['url'] = url
 
-    keyboard = InlineKeyboardMarkup([
+    keyboard = [
         [
             InlineKeyboardButton("🎬 Video", callback_data="video"),
-            InlineKeyboardButton("🎵 Audio", callback_data="audio"),
+            InlineKeyboardButton("🎵 Audio (MP3)", callback_data="audio")
         ]
-    ])
-
-    await update.message.reply_text(
-        "Qaysi formatda yuklab beray?",
-        reply_markup=keyboard
-    )
-
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Formatni tanlang:", reply_markup=reply_markup)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    choice = query.data  # "video" yoki "audio"
-    user_id = query.from_user.id
-    url = user_links.get(user_id)
+    choice = query.data
+    url = context.user_data.get('url')
 
     if not url:
-        await query.edit_message_text("Havola topilmadi, iltimos qaytadan yuboring.")
+        await query.edit_message_text("Xatolik: Havola topilmadi. Iltimos, linkni qaytadan yuboring.")
         return
 
     label = "Video" if choice == "video" else "Audio"
-    await query.edit_message_text(f"⏳ {label} yuklanmoqda... 0%")
+    await query.edit_message_text(f"⏳ {label} yuklab olinmoqda, iltimos kuting...")
 
-    os.makedirs("downloads", exist_ok=True)
+    # Yuklab olish papkasini yaratish
+    if not os.path.exists('downloads'):
+        os.makedirs('downloads')
 
-    loop = asyncio.get_running_loop()
-    # Xabarni juda tez-tez yangilanishining oldini olish uchun oxirgi holatni saqlaymiz
-    progress_state = {"last_percent": -1, "last_edit_time": 0.0}
-
-    def progress_hook(d):
-        if d.get("status") != "downloading":
-            return
-
-        total = d.get("total_bytes") or d.get("total_bytes_estimate")
-        downloaded = d.get("downloaded_bytes", 0)
-        if not total:
-            return
-
-        percent = int(downloaded / total * 100)
-        now = time.time()
-
-        # Faqat foiz o'zgarganda va kamida 1.5 soniyadan keyin yangilaymiz
-        if percent == progress_state["last_percent"]:
-            return
-        if percent < 100 and (now - progress_state["last_edit_time"] < 1.5):
-            return
-
-        progress_state["last_percent"] = percent
-        progress_state["last_edit_time"] = now
-
-        bar_filled = percent // 10
-        bar = "▓" * bar_filled + "░" * (10 - bar_filled)
-
-        async def edit():
-            try:
-                await query.edit_message_text(f"⏳ {label} yuklanmoqda...\n{bar} {percent}%")
-            except Exception:
-                pass
-
-        asyncio.run_coroutine_threadsafe(edit(), loop)
-
-if choice == "video":
+    # yt-dlp sozlamalari
+    if choice == "video":
         ydl_opts = {
-            'format': 'bestvideo+bestaudio/best',
+            'format': 'best',
             'outtmpl': 'downloads/%(id)s.%(ext)s',
             'noplaylist': True,
             'concurrent_fragment_downloads': 8,
@@ -136,21 +96,16 @@ if choice == "video":
 
         await query.edit_message_text(f"✅ {label} tayyor, yuborilmoqda...")
 
-        title = info.get("title") or ""
+        title = info.get("title") or "Video"
         description = info.get("description") or ""
-
         caption_text = title
-        if description:
-            caption_text = f"{title}\n\n{description}"
-        caption_text = caption_text.strip()[:1000]
 
-        if not caption_text:
-            caption_text = None
+        chat_id = update.effective_chat.id
 
         if choice == "video":
             with open(filename, 'rb') as f:
                 await context.bot.send_video(
-                    chat_id=user_id,
+                    chat_id=chat_id,
                     video=f,
                     caption=caption_text,
                     supports_streaming=True
@@ -158,18 +113,19 @@ if choice == "video":
         else:
             with open(filename, 'rb') as f:
                 await context.bot.send_audio(
-                    chat_id=user_id,
+                    chat_id=chat_id,
                     audio=f,
                     caption=caption_text,
-                    title=title or None
+                    title=title
                 )
 
-        os.remove(filename)
+        if os.path.exists(filename):
+            os.remove(filename)
+            
         await query.delete_message()
 
     except Exception as e:
         await query.edit_message_text(f"❌ Xatolik yuz berdi: {e}")
-
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
@@ -178,7 +134,6 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     print("Bot ishga tushdi...")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
