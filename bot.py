@@ -7,7 +7,7 @@ from telegram.ext import (
     CallbackQueryHandler, filters, ContextTypes
 )
 
-TOKEN = "8895598746:AAGcsyp2iq7bvzDbXyOzz1ibq4fazks-kjc"
+TOKEN = "8895598746:AAHXsQNR1P_t_BowYJyIF5vb0ER7ewHhymg"
 
 # Render'da "Secret Files" orqali yuklangan cookies.txt shu manzilda joylashadi.
 # Agar u yerda topilmasa, joriy papkadan (masalan kompyuteringizda ishlatganda) qidiramiz.
