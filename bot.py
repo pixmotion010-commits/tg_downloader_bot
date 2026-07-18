@@ -1,3 +1,4 @@
+import os
 import time
 import asyncio
 import yt_dlp
@@ -7,7 +8,7 @@ from telegram.ext import (
     CallbackQueryHandler, filters, ContextTypes
 )
 
-TOKEN = "8895598746:AAHXsQNR1P_t_BowYJyIF5vb0ER7ewHhymg"
+TOKEN = "8895598746:AAEjMBu3eED7CVEoOjSuZhTU2IVr2e6Wo3w"
 
 # Render'da "Secret Files" orqali yuklangan cookies.txt shu manzilda joylashadi.
 # Agar u yerda topilmasa, joriy papkadan (masalan kompyuteringizda ishlatganda) qidiramiz.
@@ -40,7 +41,6 @@ async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Iltimos, to'g'ri havola yuboring.")
         return
 
-    # Havolani foydalanuvchi ID'siga bog'lab saqlaymiz
     user_links[update.effective_user.id] = url
 
     keyboard = InlineKeyboardMarkup([
@@ -60,7 +60,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    choice = query.data  # "video" yoki "audio"
+    choice = query.data
     user_id = query.from_user.id
     url = user_links.get(user_id)
 
@@ -74,7 +74,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.makedirs("downloads", exist_ok=True)
 
     loop = asyncio.get_running_loop()
-    # Xabarni juda tez-tez yangilanishining oldini olish uchun oxirgi holatni saqlaymiz
     progress_state = {"last_percent": -1, "last_edit_time": 0.0}
 
     def progress_hook(d):
@@ -89,8 +88,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         percent = int(downloaded / total * 100)
         now = time.time()
 
-        # Faqat foiz o'zgarganda va kamida 1.5 soniyadan keyin yangilaymiz
-        # (Telegram API'ni haddan tashqari ko'p chaqirmaslik uchun)
         if percent == progress_state["last_percent"]:
             return
         if percent < 100 and (now - progress_state["last_edit_time"] < 1.5):
@@ -106,14 +103,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 await query.edit_message_text(f"⏳ {label} yuklanmoqda...\n{bar} {percent}%")
             except Exception:
-                pass  # xabar o'zgarmagan yoki kichik xato bo'lsa e'tiborsiz qoldiramiz
+                pass
 
-        # Bu funksiya alohida thread'da ishlaydi, shuning uchun asosiy event loop'ga
-        # xavfsiz tarzda vazifa yuboramiz
         asyncio.run_coroutine_threadsafe(edit(), loop)
 
     def postprocessor_hook(d):
-        # Audio'ga aylantirish (FFmpeg) jarayoni boshlanganda alohida xabar ko'rsatamiz
         if d.get("status") == "started":
             async def edit():
                 try:
@@ -124,17 +118,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if choice == "video":
         ydl_opts = {
-            # 720p gacha cheklaymiz - tezroq yuklanadi, sifat baribir yaxshi
             'format': 'best[ext=mp4][height<=720]/best[height<=720]/best[ext=mp4]/best',
             'outtmpl': 'downloads/%(id)s.%(ext)s',
             'noplaylist': True,
-            'concurrent_fragment_downloads': 8,  # parallel yuklash - tezroq
+            'concurrent_fragment_downloads': 8,
             'progress_hooks': [progress_hook],
             'cookiefile': COOKIES_PATH,
         }
     else:
         ydl_opts = {
-            # Faqat audio oqimini yuklaymiz (butun videoni emas) - ancha tezroq
             'format': 'bestaudio[abr<=128]/bestaudio/best',
             'outtmpl': 'downloads/%(id)s.%(ext)s',
             'noplaylist': True,
@@ -145,37 +137,33 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
-                'preferredquality': '128',  # 192 emas 128 - tezroq konvertatsiya, sifat baribir yaxshi
+                'preferredquality': '128',
             }],
         }
 
+    filename = None
     try:
-        # yt-dlp yuklash jarayoni "bloklovchi" (sync) bo'lgani uchun,
-        # botning boshqa foydalanuvchilarga javob berishini to'xtatib qo'ymasligi uchun
-        # uni alohida thread'da ishga tushiramiz
         def do_download():
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
-                filename = ydl.prepare_filename(info)
-                return info, filename
+                fname = ydl.prepare_filename(info)
+                return info, fname
 
         info, filename = await asyncio.to_thread(do_download)
 
-        # Audio holatida fayl kengaytmasi mp3'ga o'zgaradi
         if choice == "audio":
             base, _ = os.path.splitext(filename)
             filename = base + ".mp3"
 
         await query.edit_message_text(f"✅ {label} tayyor, yuborilmoqda...")
 
-        # Original post sarlavhasi va tavsifini (hashtaglar shu ichida) caption sifatida olamiz
         title = info.get("title") or ""
         description = info.get("description") or ""
 
         caption_text = title
         if description:
             caption_text = f"{title}\n\n{description}"
-        caption_text = caption_text.strip()[:1000]  # Telegram caption limiti ~1024
+        caption_text = caption_text.strip()[:1000]
 
         if not caption_text:
             caption_text = None
@@ -203,26 +191,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         error_text = str(e)
 
-        # Fayl hajmi juda katta bo'lsa (Telegram bot API limiti ~50MB), tushunarli xabar beramiz
         if "too large" in error_text.lower() or "Request Entity Too Large" in error_text:
             friendly = "❌ Fayl juda katta (Telegram bot orqali 50MB dan katta fayl yuborib bo'lmaydi)."
         else:
-            # Xatolik matni juda uzun bo'lsa qisqartiramiz (Telegram xabar limiti ~4096 belgi)
             short_error = error_text[:300]
             friendly = f"❌ Xatolik yuz berdi: {short_error}"
 
         try:
             await query.edit_message_text(friendly)
         except Exception:
-            # Agar xabarni tahrirlab bo'lmasa (masalan juda ko'p vaqt o'tgan bo'lsa), yangi xabar yuboramiz
             try:
                 await context.bot.send_message(chat_id=user_id, text=friendly)
             except Exception:
                 pass
 
-        # Yuklab olingan, lekin yuborilmagan qolgan faylni tozalaymiz (agar mavjud bo'lsa)
         try:
-            if 'filename' in locals() and filename and os.path.exists(filename):
+            if filename and os.path.exists(filename):
                 os.remove(filename)
         except Exception:
             pass
